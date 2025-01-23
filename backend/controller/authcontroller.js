@@ -1199,7 +1199,7 @@ export const paystackWebHook =  async (req, res) => {
             const transaction = await Transaction.findOne({ reference });
 
             if (transaction) {
-                transaction.status = 'failed';
+                transaction.status = 'Failed';
                 await transaction.save();
             }
 
