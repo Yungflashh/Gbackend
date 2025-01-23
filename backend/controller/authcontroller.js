@@ -1012,7 +1012,7 @@ export const getUserData = async (req, res) => {
 
 
 export const paymentGateway = async (req, res) => {
-    const { amount, email, orderId, username } = req.body;  // I extract the payment details (amount, email, and orderId) from the request body.
+    const { amount, email, orderId } = req.body;  // I extract the payment details (amount, email, and orderId) from the request body.
 
     try {
         // I make a POST request to Paystack's API to initialize the payment.
