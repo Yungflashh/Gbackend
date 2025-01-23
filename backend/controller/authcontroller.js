@@ -1129,7 +1129,7 @@ export const paymentVerification = async (req, res) => {
             recipientUser.wallet.transactions.push({
                 amount: paidAmount,
                 description: `A user has paid  ${paidAmount} into your wallet.`,
-                transactionType: "Deposit",
+                transactionType: "deposit",
                 status: "Approved",
                 Transaction_ID: reference,
                 timestamp: new Date()
@@ -1145,6 +1145,24 @@ export const paymentVerification = async (req, res) => {
         });
     } catch (error) {
         console.error('Error verifying payment:', error);
+
+        const {username, referenc} = req.body
+
+        const recipientUser = await User.findOne({ username });
+
+        recipientUser.wallet.transactions.push({
+            amount: paidAmount,
+            description: `A user tried to pay an amount into your wallet.`,
+            transactionType: "deposit",
+            status: "Failed",
+            Transaction_ID: reference,
+            timestamp: new Date()
+        });
+
+
+
+
+
         return res.status(500).json({ success: false, message: 'Internal server error.' });
     }
 };
