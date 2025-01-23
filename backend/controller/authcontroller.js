@@ -1063,7 +1063,7 @@ export const paymentGateway = async (req, res) => {
 }
 
 export const paymentVerification = async (req, res) => {
-    const { reference, trxref, requestId, username } = req.body;
+    const { reference, requestId, username } = req.body;
    
 
     try {
@@ -1077,7 +1077,7 @@ export const paymentVerification = async (req, res) => {
                 'Authorization': `Bearer ${process.env.PAYSTACK_SECRET_KEY}`
             }
         });
-
+        console.log(paymentVerification)
         if (paymentVerificationResponse.data.status !== true) {
 
             const recipientUser = await User.findOne({ username });
@@ -1146,7 +1146,7 @@ export const paymentVerification = async (req, res) => {
     } catch (error) {
         console.error('Error verifying payment:', error);
 
-        const {username, referenc} = req.body
+        const {username, reference} = req.body
 
         const recipientUser = await User.findOne({ username });
 
@@ -1168,6 +1168,68 @@ export const paymentVerification = async (req, res) => {
 };
 
 
+const verifyWebhook = (req) => {
+    const signature = req.headers['x-paystack-signature'];
+    const payload = JSON.stringify(req.body);
+
+    const expectedSignature = crypto
+        .createHmac('sha512', process.env.PAYSTACK_SECRET_KEY)
+        .update(payload)
+        .digest('hex');
+
+    return expectedSignature === signature;
+};
+
+// Webhook listener endpoint
+export const paystackWebHook =  async (req, res) => {
+    try {
+        if (!verifyWebhook(req)) {
+            return res.status(400).json({ success: false, message: 'Invalid signature' });
+        }
+
+        const { event, data } = req.body;
+
+        // Only handle 'charge.failed' event for cancelled/failed payments
+        if (event === 'charge.failed') {
+            const { reference, status, amount, message } = data;
+
+            console.log(`Payment failed for Reference: ${reference}. Reason: ${message}`);
+
+            // Update the transaction status to 'failed'
+            const transaction = await Transaction.findOne({ reference });
+
+            if (transaction) {
+                transaction.status = 'failed';
+                await transaction.save();
+            }
+
+            // Optionally, update the user's wallet or notify them about the failure
+            const recipientUser = await User.findOne({ username: data.username });
+            if (recipientUser) {
+                recipientUser.wallet.transactions.push({
+                    amount: amount / 100, // convert to original amount (in naira, dollars, etc.)
+                    description: `Payment failed for transaction ${reference}`,
+                    transactionType: 'Deposit',
+                    status: 'Failed',
+                    Transaction_ID: reference,
+                    timestamp: new Date()
+                });
+
+                await recipientUser.save();
+            }
+
+            // Respond to Paystack webhook to confirm receipt
+            return res.status(200).json({ success: true });
+        }
+
+        // If event is not of interest, still respond with a success message
+        return res.status(200).json({ success: true });
+
+    } catch (error) {
+        console.error('Error processing webhook:', error);
+        return res.status(500).json({ success: false, message: 'Internal server error.' });
+    }
+};
 
 
 export const getEmail = async (req, res) => {
