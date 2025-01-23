@@ -1188,27 +1188,15 @@ export const paystackWebHook =  async (req, res) => {
         }
 
         const { event, data } = req.body;
+        const {reference} = data;
 
         // Only handle 'charge.failed' event for cancelled/failed payments
         if (event === 'charge.failed') {
-            const { reference, status, amount, message } = data;
-
-            console.log(`Payment failed for Reference: ${reference}. Reason: ${message}`);
-
-            // Update the transaction status to 'failed'
-            const transaction = await Transaction.findOne({ reference });
-
-            if (transaction) {
-                transaction.status = 'Failed';
-                await transaction.save();
-            }
-
-            // Optionally, update the user's wallet or notify them about the failure
             const recipientUser = await User.findOne({ username: data.username });
             if (recipientUser) {
                 recipientUser.wallet.transactions.push({
                     amount: amount / 100, // convert to original amount (in naira, dollars, etc.)
-                    description: `Payment failed for transaction ${reference}`,
+                    description: `Payment failed for transaction`,
                     transactionType: 'Deposit',
                     status: 'Failed',
                     Transaction_ID: reference,
